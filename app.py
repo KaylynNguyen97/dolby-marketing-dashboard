@@ -1,15 +1,3 @@
-# COMPLETE GOOGLE COLAB STREAMLIT SETUP
-# Run each section in separate cells
-
-# ========================================================================================
-# CELL 1: Install Required Packages
-# ========================================================================================
-!pip install streamlit plotly seaborn pyngrok -q
-
-# ========================================================================================
-# CELL 2: Create the Dashboard File
-# ========================================================================================
-dashboard_code = '''
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -36,12 +24,14 @@ st.markdown("""
         color: #1f77b4;
         text-align: center;
         margin-bottom: 2rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
     .metric-card {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 0.5rem;
         border-left: 5px solid #1f77b4;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .section-header {
         font-size: 1.5rem;
@@ -50,6 +40,16 @@ st.markdown("""
         margin: 2rem 0 1rem 0;
         border-bottom: 2px solid #1f77b4;
         padding-bottom: 0.5rem;
+    }
+    .sidebar .sidebar-content {
+        background-color: #f8f9fa;
+    }
+    .stSelectbox > div > div > select {
+        background-color: white;
+    }
+    .metric-delta {
+        font-size: 0.8rem;
+        color: #666;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -66,6 +66,12 @@ def clean_percentage(value):
     if isinstance(value, str):
         return float(value.replace('%', ''))
     return float(value)
+
+def calculate_delta(current, previous):
+    """Calculate percentage change between two values"""
+    if previous == 0:
+        return 0
+    return ((current - previous) / previous) * 100
 
 # Data loading function (using sample data)
 @st.cache_data
@@ -180,6 +186,11 @@ def process_data(social_df, website_df, events_df, monitoring_df, brandpulse_df)
     
     return social_df, website_df, events_df, monitoring_df, brandpulse_df
 
+def create_summary_table(df, columns_to_show):
+    """Create a summary statistics table"""
+    summary_stats = df[columns_to_show].describe().round(2)
+    return summary_stats
+
 def main():
     # Title
     st.markdown('<h1 class="main-header">🎵 Dolby Marketing Analytics Dashboard</h1>', unsafe_allow_html=True)
@@ -191,6 +202,9 @@ def main():
     # Sidebar
     st.sidebar.title("📊 Dashboard Controls")
     
+    # Add date range info
+    st.sidebar.info("📅 **Data Period:** January 2025 - June 2025")
+    
     # Navigation
     section = st.sidebar.selectbox(
         "Select Analysis Section:",
@@ -198,27 +212,68 @@ def main():
          "🎯 B2B Events", "📊 Social Monitoring", "🎯 Brand Pulse Survey"]
     )
     
+    # Add export option
+    st.sidebar.markdown("---")
+    if st.sidebar.button("📥 Export Data Summary"):
+        # Create summary data
+        summary_text = f"""
+        DOLBY MARKETING ANALYTICS SUMMARY
+        =================================
+        
+        Total Social Media Spend: ${social_df['Spend_Clean'].sum():,.0f}
+        Total Signups: {social_df['Attributed sweeps signups on dolby.com'].sum():,}
+        Average CTR: {social_df['CTR'].mean():.2f}%
+        Total Website Visits: {website_df['Website visits'].sum():,}
+        
+        Latest Month Performance:
+        - Social Media Signups: {social_df['Attributed sweeps signups on dolby.com'].iloc[-1]:,}
+        - Website Demos: {website_df['Demos completed'].iloc[-1]:,}
+        - Average Session Duration: {website_df['Average session duration (min)'].iloc[-1]:.1f} min
+        """
+        st.sidebar.download_button(
+            label="Download Summary",
+            data=summary_text,
+            file_name="dolby_marketing_summary.txt",
+            mime="text/plain"
+        )
+    
     if section == "🏠 Overview":
         st.markdown('<div class="section-header">📈 Key Performance Indicators</div>', unsafe_allow_html=True)
         
-        # KPI Metrics
+        # KPI Metrics with deltas
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             total_spend = social_df['Spend_Clean'].sum()
-            st.metric("Total Social Spend", f"${total_spend:,.0f}")
+            latest_spend = social_df['Spend_Clean'].iloc[-1]
+            prev_spend = social_df['Spend_Clean'].iloc[-2]
+            spend_delta = calculate_delta(latest_spend, prev_spend)
+            st.metric("Total Social Spend", f"${total_spend:,.0f}", 
+                     delta=f"{spend_delta:.1f}% vs prev month")
             
         with col2:
             total_signups = social_df['Attributed sweeps signups on dolby.com'].sum()
-            st.metric("Total Signups", f"{total_signups:,}")
+            latest_signups = social_df['Attributed sweeps signups on dolby.com'].iloc[-1]
+            prev_signups = social_df['Attributed sweeps signups on dolby.com'].iloc[-2]
+            signup_delta = calculate_delta(latest_signups, prev_signups)
+            st.metric("Total Signups", f"{total_signups:,}", 
+                     delta=f"{signup_delta:.1f}% vs prev month")
             
         with col3:
             avg_ctr = social_df['CTR'].mean()
-            st.metric("Average CTR", f"{avg_ctr:.2f}%")
+            latest_ctr = social_df['CTR'].iloc[-1]
+            prev_ctr = social_df['CTR'].iloc[-2]
+            ctr_delta = calculate_delta(latest_ctr, prev_ctr)
+            st.metric("Average CTR", f"{avg_ctr:.2f}%", 
+                     delta=f"{ctr_delta:.1f}% vs prev month")
             
         with col4:
             total_website_visits = website_df['Website visits'].sum()
-            st.metric("Total Website Visits", f"{total_website_visits:,}")
+            latest_visits = website_df['Website visits'].iloc[-1]
+            prev_visits = website_df['Website visits'].iloc[-2]
+            visits_delta = calculate_delta(latest_visits, prev_visits)
+            st.metric("Total Website Visits", f"{total_website_visits:,}", 
+                     delta=f"{visits_delta:.1f}% vs prev month")
         
         # Overview Charts
         col1, col2 = st.columns(2)
@@ -228,7 +283,12 @@ def main():
             fig = px.line(social_df, x='Month', y='Spend_Clean', 
                          title='Social Media Spend Over Time',
                          labels={'Spend_Clean': 'Spend ($)'})
-            fig.update_traces(line=dict(width=3))
+            fig.update_traces(line=dict(width=3, color='#1f77b4'))
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=12)
+            )
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
@@ -236,8 +296,54 @@ def main():
             fig = px.line(website_df, x='Month', y='Website visits',
                          title='Website Visits Growth',
                          labels={'Website visits': 'Visits'})
-            fig.update_traces(line=dict(width=3))
+            fig.update_traces(line=dict(width=3, color='#ff7f0e'))
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=12)
+            )
             st.plotly_chart(fig, use_container_width=True)
+        
+        # Performance Summary
+        st.markdown('<div class="section-header">📊 Performance Summary</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Social Media Efficiency")
+            efficiency_metrics = {
+                'Metric': ['Cost per Click', 'Cost per Signup', 'CTR', 'Signup Rate'],
+                'Current': [
+                    f"${social_df['CPC'].iloc[-1]:.2f}",
+                    f"${social_df['CPSignup'].iloc[-1]:.2f}",
+                    f"{social_df['CTR'].iloc[-1]:.2f}%",
+                    f"{social_df['Click_to_Signup_Rate'].iloc[-1]:.2f}%"
+                ],
+                'Average': [
+                    f"${social_df['CPC'].mean():.2f}",
+                    f"${social_df['CPSignup'].mean():.2f}",
+                    f"{social_df['CTR'].mean():.2f}%",
+                    f"{social_df['Click_to_Signup_Rate'].mean():.2f}%"
+                ]
+            }
+            st.dataframe(pd.DataFrame(efficiency_metrics), use_container_width=True)
+        
+        with col2:
+            st.subheader("Website Engagement")
+            engagement_metrics = {
+                'Metric': ['Unique to Demo Rate', 'Demo to Signup Rate', 'Avg Session Duration'],
+                'Current': [
+                    f"{website_df['Unique_to_Demo_Rate'].iloc[-1]:.2f}%",
+                    f"{website_df['Demo_to_Signup_Rate'].iloc[-1]:.2f}%",
+                    f"{website_df['Average session duration (min)'].iloc[-1]:.1f} min"
+                ],
+                'Average': [
+                    f"{website_df['Unique_to_Demo_Rate'].mean():.2f}%",
+                    f"{website_df['Demo_to_Signup_Rate'].mean():.2f}%",
+                    f"{website_df['Average session duration (min)'].mean():.1f} min"
+                ]
+            }
+            st.dataframe(pd.DataFrame(engagement_metrics), use_container_width=True)
     
     elif section == "📱 Social Media Performance":
         st.markdown('<div class="section-header">📱 B2C Social Media Performance</div>', unsafe_allow_html=True)
@@ -255,44 +361,69 @@ def main():
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CTR'],
                                        mode='lines+markers', name='CTR (%)',
-                                       line=dict(width=3)))
+                                       line=dict(width=3, color='#1f77b4'),
+                                       marker=dict(size=8)))
                 fig.update_layout(title='Click-Through Rate Over Time',
-                                xaxis_title='Month', yaxis_title='CTR (%)')
+                                xaxis_title='Month', yaxis_title='CTR (%)',
+                                plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig, use_container_width=True)
                 
             with col2:
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Click_to_Signup_Rate'],
                                        mode='lines+markers', name='Signup Rate (%)',
-                                       line=dict(width=3, color='orange')))
+                                       line=dict(width=3, color='orange'),
+                                       marker=dict(size=8)))
                 fig.update_layout(title='Click-to-Signup Rate Over Time',
-                                xaxis_title='Month', yaxis_title='Signup Rate (%)')
+                                xaxis_title='Month', yaxis_title='Signup Rate (%)',
+                                plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig, use_container_width=True)
         
         elif metric_type == "Cost Metrics":
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPM'],
-                                   mode='lines+markers', name='CPM'))
+                                   mode='lines+markers', name='CPM',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPC'],
-                                   mode='lines+markers', name='CPC'))
+                                   mode='lines+markers', name='CPC',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPSignup'],
-                                   mode='lines+markers', name='Cost per Signup'))
+                                   mode='lines+markers', name='Cost per Signup',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.update_layout(title='Cost Metrics Over Time',
-                            xaxis_title='Month', yaxis_title='Cost ($)')
+                            xaxis_title='Month', yaxis_title='Cost ($)',
+                            plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         
         else:  # Volume Metrics
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Impressions']/1000000,
-                                   mode='lines+markers', name='Impressions (M)'),
+                                   mode='lines+markers', name='Impressions (M)',
+                                   line=dict(width=3), marker=dict(size=8)),
                          secondary_y=False)
             fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Clicks to dolby.com landing']/1000,
-                                   mode='lines+markers', name='Clicks (K)'),
+                                   mode='lines+markers', name='Clicks (K)',
+                                   line=dict(width=3), marker=dict(size=8)),
                          secondary_y=True)
-            fig.update_layout(title='Volume Metrics Over Time')
+            fig.update_layout(title='Volume Metrics Over Time',
+                            plot_bgcolor='rgba(0,0,0,0)')
             fig.update_yaxes(title_text="Impressions (M)", secondary_y=False)
             fig.update_yaxes(title_text="Clicks (K)", secondary_y=True)
             st.plotly_chart(fig, use_container_width=True)
+        
+        # Performance insights
+        st.markdown("### 📊 Performance Insights")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            best_ctr_month = social_df.loc[social_df['CTR'].idxmax(), 'Month']
+            st.success(f"**Best CTR:** {social_df['CTR'].max():.2f}% in {best_ctr_month}")
+        with col2:
+            lowest_cpc_month = social_df.loc[social_df['CPC'].idxmin(), 'Month']
+            st.success(f"**Lowest CPC:** ${social_df['CPC'].min():.2f} in {lowest_cpc_month}")
+        with col3:
+            highest_signups = social_df['Attributed sweeps signups on dolby.com'].max()
+            st.success(f"**Peak Signups:** {highest_signups:,} signups")
     
     elif section == "🌐 Website Engagement":
         st.markdown('<div class="section-header">🌐 B2C Website Engagement</div>', unsafe_allow_html=True)
@@ -302,20 +433,25 @@ def main():
         with col1:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Website visits'],
-                                   mode='lines+markers', name='Total Visits'))
+                                   mode='lines+markers', name='Total Visits',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Uniques'],
-                                   mode='lines+markers', name='Unique Visits'))
+                                   mode='lines+markers', name='Unique Visits',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.update_layout(title='Website Traffic Over Time',
-                            xaxis_title='Month', yaxis_title='Visits')
+                            xaxis_title='Month', yaxis_title='Visits',
+                            plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Average session duration (min)'],
                                    mode='lines+markers', name='Avg Session Duration',
-                                   line=dict(color='green', width=3)))
+                                   line=dict(color='green', width=3),
+                                   marker=dict(size=8)))
             fig.update_layout(title='Average Session Duration',
-                            xaxis_title='Month', yaxis_title='Duration (min)')
+                            xaxis_title='Month', yaxis_title='Duration (min)',
+                            plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         
         col1, col2 = st.columns(2)
@@ -323,22 +459,38 @@ def main():
         with col1:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Demos completed'],
-                                   mode='lines+markers', name='Demos Completed'))
+                                   mode='lines+markers', name='Demos Completed',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Total sweeps signups'],
-                                   mode='lines+markers', name='Total Signups'))
+                                   mode='lines+markers', name='Total Signups',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.update_layout(title='Demos vs Signups Over Time',
-                            xaxis_title='Month', yaxis_title='Count')
+                            xaxis_title='Month', yaxis_title='Count',
+                            plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Unique_to_Demo_Rate'],
-                                   mode='lines+markers', name='Unique to Demo Rate'))
+                                   mode='lines+markers', name='Unique to Demo Rate',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Demo_to_Signup_Rate'],
-                                   mode='lines+markers', name='Demo to Signup Rate'))
+                                   mode='lines+markers', name='Demo to Signup Rate',
+                                   line=dict(width=3), marker=dict(size=8)))
             fig.update_layout(title='Conversion Rates Over Time',
-                            xaxis_title='Month', yaxis_title='Rate (%)')
+                            xaxis_title='Month', yaxis_title='Rate (%)',
+                            plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
+        
+        # Website performance summary
+        st.markdown("### 📈 Website Performance Trends")
+        col1, col2 = st.columns(2)
+        with col1:
+            growth_rate = ((website_df['Website visits'].iloc[-1] - website_df['Website visits'].iloc[0]) / website_df['Website visits'].iloc[0]) * 100
+            st.metric("Traffic Growth", f"{growth_rate:.1f}%", "6-month period")
+        with col2:
+            avg_conversion = website_df['Demo_to_Signup_Rate'].mean()
+            st.metric("Avg Demo→Signup Rate", f"{avg_conversion:.1f}%")
     
     elif section == "🎯 B2B Events":
         st.markdown('<div class="section-header">🎯 B2B Industry Events</div>', unsafe_allow_html=True)
@@ -348,174 +500,3 @@ def main():
         with col1:
             fig = px.bar(events_df, x='Industry Event', y='Event_Spend_Clean',
                         title='Event Spend by Event',
-                        labels={'Event_Spend_Clean': 'Spend ($)'})
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(x=events_df['Industry Event'], 
-                               y=events_df['# demos of Dolby Play conducted for mobile device partner contacts'],
-                               name='Demos', offsetgroup=1))
-            fig.add_trace(go.Bar(x=events_df['Industry Event'], 
-                               y=events_df['# new mobile device partner leads generated'],
-                               name='Leads', offsetgroup=2))
-            fig.update_layout(title='Demos vs Leads by Event',
-                            xaxis_title='Event', yaxis_title='Count')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(x=events_df['Industry Event'], y=events_df['CPDemo'],
-                               name='Cost per Demo'))
-            fig.add_trace(go.Bar(x=events_df['Industry Event'], y=events_df['CPL'],
-                               name='Cost per Lead'))
-            fig.update_layout(title='Cost Efficiency by Event',
-                            xaxis_title='Event', yaxis_title='Cost ($)')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            fig = px.bar(events_df, x='Industry Event', y='Demo_to_Lead_Rate',
-                        title='Demo to Lead Conversion Rate',
-                        labels={'Demo_to_Lead_Rate': 'Conversion Rate (%)'})
-            st.plotly_chart(fig, use_container_width=True)
-    
-    elif section == "📊 Social Monitoring":
-        st.markdown('<div class="section-header">📊 Social Media Monitoring</div>', unsafe_allow_html=True)
-        
-        # Platform selection
-        selected_platforms = st.multiselect(
-            "Select Platforms:",
-            options=monitoring_df['Platform'].unique(),
-            default=monitoring_df['Platform'].unique()
-        )
-        
-        filtered_monitoring = monitoring_df[monitoring_df['Platform'].isin(selected_platforms)]
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig = px.line(filtered_monitoring, x='Month', y='Followers', 
-                         color='Platform', title='Followers Growth by Platform')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            fig = px.line(filtered_monitoring, x='Month', y='Engagement_Rate_Clean',
-                         color='Platform', title='Engagement Rate by Platform',
-                         labels={'Engagement_Rate_Clean': 'Engagement Rate (%)'})
-            st.plotly_chart(fig, use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig = px.line(filtered_monitoring, x='Month', y='Sentiment Score',
-                         color='Platform', title='Sentiment Score by Platform')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            fig = px.line(filtered_monitoring, x='Month', y='Share_of_Voice_Clean',
-                         color='Platform', title='Share of Voice by Platform',
-                         labels={'Share_of_Voice_Clean': 'Share of Voice (%)'})
-            st.plotly_chart(fig, use_container_width=True)
-    
-    elif section == "🎯 Brand Pulse Survey":
-        st.markdown('<div class="section-header">🎯 Brand Pulse Survey Analysis</div>', unsafe_allow_html=True)
-        
-        # Metric selection
-        selected_metric = st.selectbox(
-            "Select Metric:",
-            options=brandpulse_df['Metric'].unique()
-        )
-        
-        metric_data = brandpulse_df[brandpulse_df['Metric'] == selected_metric]
-        
-        # Create demographic segment identifier
-        metric_data['Demographic'] = metric_data['Age Group'] + ' ' + metric_data['Gender']
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fig = px.line(metric_data, x='Quarter', y='Score_Clean',
-                         color='Demographic', title=f'{selected_metric} - Dolby Scores',
-                         labels={'Score_Clean': 'Score (%)'})
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            fig = px.line(metric_data, x='Quarter', y='Comp_Avg_Clean',
-                         color='Demographic', title=f'{selected_metric} - Competitor Average',
-                         labels={'Comp_Avg_Clean': 'Score (%)'})
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Gap analysis
-        metric_data['Gap'] = metric_data['Score_Clean'] - metric_data['Comp_Avg_Clean']
-        
-        fig = px.bar(metric_data, x='Quarter', y='Gap', color='Demographic',
-                    title=f'{selected_metric} - Dolby vs Competitor Gap',
-                    labels={'Gap': 'Gap (% points)'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("📊 **Dolby Marketing Analytics Dashboard** | Powered by Streamlit")
-
-if __name__ == "__main__":
-    main()
-'''
-
-# Save the dashboard code to a file
-with open('dolby_dashboard.py', 'w') as f:
-    f.write(dashboard_code)
-
-print("✅ Dashboard file created successfully!")
-
-# ========================================================================================
-# CELL 3: Setup ngrok (Get your token from https://ngrok.com/)
-# ========================================================================================
-from pyngrok import ngrok
-import getpass
-
-# Enter your ngrok auth token (sign up at https://ngrok.com/ to get one)
-ngrok_token = getpass.getpass('Enter your ngrok auth token: ')
-ngrok.set_auth_token(ngrok_token)
-
-print("✅ ngrok configured successfully!")
-
-# ========================================================================================
-# CELL 4: Start Streamlit (Run this in background)
-# ========================================================================================
-import subprocess
-import time
-import threading
-
-# Function to run streamlit
-def run_streamlit():
-    subprocess.run(['streamlit', 'run', 'dolby_dashboard.py', '--server.port=8501', '--server.address=0.0.0.0'])
-
-# Start streamlit in a separate thread
-streamlit_thread = threading.Thread(target=run_streamlit)
-streamlit_thread.daemon = True
-streamlit_thread.start()
-
-print("🚀 Streamlit is starting...")
-time.sleep(10)  # Wait for streamlit to start
-
-# ========================================================================================
-# CELL 5: Create ngrok tunnel and get public URL
-# ========================================================================================
-from pyngrok import ngrok
-
-# Create tunnel
-public_url = ngrok.connect(8501)
-print(f"🌐 Your Streamlit dashboard is live at: {public_url}")
-print("Click the link above to access your dashboard!")
-
-# Keep the tunnel alive
-import time
-try:
-    print("📊 Dashboard is running... Press Ctrl+C to stop")
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("🛑 Stopping dashboard...")
-    ngrok.disconnect(public_url)
