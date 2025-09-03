@@ -1,15 +1,3 @@
-# COMPLETE GOOGLE COLAB STREAMLIT SETUP
-# Run each section in separate cells
-
-# ========================================================================================
-# CELL 1: Install Required Packages
-# ========================================================================================
-!pip install streamlit plotly seaborn pyngrok -q
-
-# ========================================================================================
-# CELL 2: Create the Dashboard File
-# ========================================================================================
-dashboard_code = '''
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -461,61 +449,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
-
-# Save the dashboard code to a file
-with open('dolby_dashboard.py', 'w') as f:
-    f.write(dashboard_code)
-
-print("✅ Dashboard file created successfully!")
-
-# ========================================================================================
-# CELL 3: Setup ngrok (Get your token from https://ngrok.com/)
-# ========================================================================================
-from pyngrok import ngrok
-import getpass
-
-# Enter your ngrok auth token (sign up at https://ngrok.com/ to get one)
-ngrok_token = getpass.getpass('Enter your ngrok auth token: ')
-ngrok.set_auth_token(ngrok_token)
-
-print("✅ ngrok configured successfully!")
-
-# ========================================================================================
-# CELL 4: Start Streamlit (Run this in background)
-# ========================================================================================
-import subprocess
-import time
-import threading
-
-# Function to run streamlit
-def run_streamlit():
-    subprocess.run(['streamlit', 'run', 'dolby_dashboard.py', '--server.port=8501', '--server.address=0.0.0.0'])
-
-# Start streamlit in a separate thread
-streamlit_thread = threading.Thread(target=run_streamlit)
-streamlit_thread.daemon = True
-streamlit_thread.start()
-
-print("🚀 Streamlit is starting...")
-time.sleep(10)  # Wait for streamlit to start
-
-# ========================================================================================
-# CELL 5: Create ngrok tunnel and get public URL
-# ========================================================================================
-from pyngrok import ngrok
-
-# Create tunnel
-public_url = ngrok.connect(8501)
-print(f"🌐 Your Streamlit dashboard is live at: {public_url}")
-print("Click the link above to access your dashboard!")
-
-# Keep the tunnel alive
-import time
-try:
-    print("📊 Dashboard is running... Press Ctrl+C to stop")
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    print("🛑 Stopping dashboard...")
-    ngrok.disconnect(public_url)
