@@ -1,4 +1,3 @@
-# app.py - FIXED VERSION USING PLOTLY
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,894 +10,518 @@ warnings.filterwarnings('ignore')
 # Page configuration
 st.set_page_config(
     page_title="Dolby Marketing Analytics Dashboard",
-    page_icon="📊",
+    page_icon="🎵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for better styling
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.5rem;
-        color: #1E3A8A;
-        font-weight: 700;
+        font-size: 3rem;
+        font-weight: bold;
+        color: #1f77b4;
         text-align: center;
-        margin-bottom: 1rem;
-    }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #374151;
-        font-weight: 600;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #E5E7EB;
-        padding-bottom: 0.5rem;
+        margin-bottom: 2rem;
     }
     .metric-card {
-        background-color: #F9FAFB;
-        border-radius: 10px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 5px solid #1f77b4;
     }
-    .kpi-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1E3A8A;
-    }
-    .kpi-label {
-        font-size: 0.9rem;
-        color: #6B7280;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 2rem 0 1rem 0;
+        border-bottom: 2px solid #1f77b4;
+        padding-bottom: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.markdown('<h1 class="main-header">📊 DOLBY MARKETING PERFORMANCE DASHBOARD</h1>', unsafe_allow_html=True)
+# Helper functions for data cleaning
+def clean_currency(value):
+    """Convert currency strings to numeric values"""
+    try:
+        if isinstance(value, str):
+            return float(value.replace('$', '').replace(',', ''))
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
 
-# Sidebar for navigation and filters
-with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Dolby_Laboratories_logo.svg/1280px-Dolby_Laboratories_logo.svg.png", 
-             width=200)
-    st.markdown("### 📈 Dashboard Navigation")
-    
-    dashboard_choice = st.selectbox(
-        "Select Dashboard View",
-        ["📊 Executive Summary", 
-         "🎯 Market Position & Lead Gen", 
-         "⭐ Product Experience",
-         "🤝 Partner Value & Enablement",
-         "💡 Innovation Leadership",
-         "🎨 Creator Advocacy"]
-    )
-    
-    st.markdown("---")
-    st.markdown("### ⚙️ Filters")
-    
-    # Date range filter
-    date_range = st.selectbox(
-        "Time Period",
-        ["Last 12 Months", "Last 6 Months", "Last Quarter", "Year to Date", "All Time"]
-    )
-    
-    # Market filter (if applicable)
-    market_options = ["All Markets", "North America", "Europe", "Asia Pacific", "Latin America"]
-    selected_market = st.selectbox("Market", market_options)
-    
-    st.markdown("---")
-    st.markdown("### 📊 Data Status")
-    st.info("Using simulated data for demonstration")
-    
-    if st.button("🔄 Refresh Data"):
-        st.rerun()
+def clean_percentage(value):
+    """Convert percentage strings to numeric values"""
+    try:
+        if isinstance(value, str):
+            return float(value.replace('%', ''))
+        return float(value)
+    except (ValueError, TypeError):
+        return 0.0
 
-# Helper function for data loading
+# Data loading function (using sample data)
 @st.cache_data
-def load_simulated_data():
-    """Generate simulated data for demonstration"""
-    
-    # Generate dates
-    dates = pd.date_range(start='2023-01-01', end='2024-01-01', freq='M')
-    quarters = [f'Q{(i%4)+1} 202{3 if i<4 else 4}' for i in range(len(dates))]
-    
-    # Brand Health Index
-    brand_health = pd.DataFrame({
-        'Date': quarters[:8],
-        'Composite_Brand_Health_Score': [78.2, 79.5, 81.3, 82.1, 83.4, 84.2, 85.0, 85.5]
-    })
-    
-    # Digital Brand Presence
-    markets = ['North America', 'Europe', 'Asia Pacific']
-    digital_presence = pd.DataFrame({
-        'Market': np.repeat(markets, 4),
-        'Composite_Digital_Presence_Score': [85.3, 87.2, 82.4, 86.1, 83.2, 84.5, 81.3, 85.6, 79.4, 81.2, 78.5, 80.3]
-    })
-    
-    # Marketing Qualified Leads
-    mql_data = []
-    sources = ['Organic Search', 'Paid Social', 'Email', 'Events']
-    for i, date in enumerate(dates[:6]):
-        for source in sources:
-            base = 200 + i * 50
-            total = base + np.random.randint(-20, 50)
-            mql_count = int(total * (0.25 + i * 0.03))
-            mql_data.append({
-                'Date': date,
-                'Lead_Source': source,
-                'Total_Leads': total,
-                'MQL_Count': mql_count,
-                'Lead_Score_Average': 68 + i * 3 + np.random.randint(-5, 5),
-                'Conversion_Rate': mql_count / total
-            })
-    mql_df = pd.DataFrame(mql_data)
-    
-    # Product NPS
-    touchpoints = ['Website Demo', 'Product Tour', 'Trial Signup', 'First Login']
-    product_nps_data = []
-    for i, quarter in enumerate(quarters[:8]):
-        for j, touchpoint in enumerate(touchpoints):
-            product_nps_data.append({
-                'Date': quarter,
-                'Year_Quarter': quarter,
-                'Touchpoint': touchpoint,
-                'NPS_Score': 45 + i * 3 + j * 2,
-                'Value_Communication_Score': 4.0 + i * 0.1 + j * 0.05,
-                'Ease_Of_Understanding_Score': 4.2 + i * 0.08 + j * 0.03,
-                'Brand_Clarity_Score': 4.1 + i * 0.09 + j * 0.04,
-                'Entertainment_Value_Score': 4.3 + i * 0.07 + j * 0.06,
-                'Promoters_Pct': 50 + i * 2 + j * 1,
-                'Passives_Pct': 30 - i * 1,
-                'Detractors_Pct': 20 - i * 1 - j * 0.5
-            })
-    product_nps_df = pd.DataFrame(product_nps_data)
-    
-    # Partner NPS
-    regions = ['NA', 'EMEA', 'APAC']
-    partner_types = ['Technology', 'Channel', 'Strategic']
-    partner_nps_data = []
-    for year in [2022, 2023]:
-        for region in regions:
-            for p_type in partner_types:
-                partner_nps_data.append({
-                    'Year': year,
-                    'Region': region,
-                    'Partner_Type': p_type,
-                    'NPS_Score': 55 + (year-2022) * 5 + np.random.randint(-10, 10),
-                    'Brand_Awareness_Score': 4.1 + (year-2022) * 0.2 + np.random.uniform(-0.1, 0.1),
-                    'Innovation_Leadership_Score': 4.2 + (year-2022) * 0.3 + np.random.uniform(-0.1, 0.1)
-                })
-    partner_nps_df = pd.DataFrame(partner_nps_data)
-    
-    # Partner Mentions
-    partners = ['Partner A', 'Partner B', 'Partner C', 'Partner D']
-    partner_mentions_data = []
-    for i, date in enumerate(dates[:6]):
-        for partner in partners:
-            partner_mentions_data.append({
-                'Date': date,
-                'Partner_Name': partner,
-                'Mention_Count': 100 + i * 40 + np.random.randint(-20, 50),
-                'Estimated_Reach': 500000 + i * 200000 + np.random.randint(-100000, 300000),
-                'Co_Branded': np.random.choice(['Yes', 'No'], p=[0.6, 0.4])
-            })
-    partner_mentions_df = pd.DataFrame(partner_mentions_data)
-    
-    # Innovation Leadership
-    categories = ['Audio Tech', 'Immersive Experience', 'Cinema Innovation', 'Gaming Tech']
-    audiences = ['Consumers', 'Professionals', 'Developers', 'Partners']
-    innovation_data = []
-    for i, date in enumerate(dates[:6]):
-        for j, category in enumerate(categories):
-            for audience in audiences:
-                innovation_data.append({
-                    'Date': date,
-                    'Innovation_Category': category,
-                    'Audience': audience,
-                    'Innovation_Leadership_Index': 70 + i * 3 + j * 2,
-                    'Association_Share_Pct': 30 + i * 5 + j * 3,
-                    'Positive_Sentiment_Pct': 70 + i * 2,
-                    'Negative_Sentiment_Pct': 10 - i * 0.5,
-                    'Neutral_Sentiment_Pct': 20 - i * 1.5,
-                    'Category_Sentiment_Score': 4.0 + i * 0.1 + j * 0.05,
-                    'Total_Mentions': 200 + i * 100 + j * 50
-                })
-    innovation_df = pd.DataFrame(innovation_data)
-    
-    # Creator NPS
-    content_types = ['Video Tutorial', 'Case Study', 'Social Campaign', 'Event Content']
-    cohorts = ['Cohort 1', 'Cohort 2', 'Cohort 3', 'Cohort 4']
-    creator_nps_data = []
-    for i, quarter in enumerate(quarters[:8]):
-        for j, content_type in enumerate(content_types):
-            creator_nps_data.append({
-                'Date': quarter,
-                'Quarter': quarter,
-                'Content_Type': content_type,
-                'Cohort': cohorts[j % 4],
-                'NPS_Score': 52 + i * 2 + j * 1,
-                'Program_Value_Score': 4.2 + i * 0.1 + j * 0.05,
-                'Workflow_Efficiency_Score': 4.1 + i * 0.08 + j * 0.03,
-                'Promoters_Pct': 55 + i * 2 + j * 1,
-                'Passives_Pct': 30 - i * 1,
-                'Detractors_Pct': 15 - i * 1 - j * 0.5,
-                'Response_Count': 80 + i * 20 + j * 10
-            })
-    creator_nps_df = pd.DataFrame(creator_nps_data)
-    
-    return {
-        'Brand_Health_Index': brand_health,
-        'Digital_Brand_Presence': digital_presence,
-        'Marketing_Qualified_Leads': mql_df,
-        'Product_NPS': product_nps_df,
-        'Partner_NPS': partner_nps_df,
-        'Partner_Brand_Mentions': partner_mentions_df,
-        'Creator_Lab_NPS': creator_nps_df,
-        'Innovation_Leadership_Index': innovation_df
+def load_sample_data():
+    # B2C Social Media Performance Data
+    social_data = {
+        'Month': ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06'],
+        'Spend (USD)': ['$125,441', '$126,198', '$120,458', '$125,973', '$125,412', '$120,042'],
+        'Impressions': [12464777, 12975553, 12962575, 12401415, 13055242, 13234155],
+        'Clicks to dolby.com landing': [90818, 101975, 102106, 101072, 107627, 114475],
+        'Attributed sweeps signups on dolby.com': [4025, 4560, 4757, 4862, 5186, 5480]
     }
+    
+    # B2C Website Engagement Data
+    website_data = {
+        'Month': ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06'],
+        'Website visits': [2450685, 2680483, 2920086, 3180870, 3460175, 3780668],
+        'Uniques': [1680842, 1820119, 1980005, 2150509, 2340491, 2550671],
+        'Average session duration (min)': [2.5, 2.6, 2.5, 2.8, 2.9, 2.6],
+        'Demos completed': [42509, 42007, 46105, 48304, 60802, 63608],
+        'Total sweeps signups': [10827, 11745, 12767, 13183, 13860, 14862]
+    }
+    
+    # B2B Industry Events Data
+    events_data = {
+        'Month': ['2025-01', '2025-02', '2025-03', '2025-05'],
+        'Industry Event': ['CES', 'Mobile World Congress', 'SXSW', 'Game Asia'],
+        'Event spend for Dolby Play': ['$750,000', '$250,000', '$250,000', '$650,000'],
+        '# demos of Dolby Play conducted for mobile device partner contacts': [75, 55, 60, 60],
+        '# new mobile device partner leads generated': [15, 5, 3, 5]
+    }
+    
+    # Social Media Monitoring Data
+    monitoring_data = {
+        'Month': ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06'] * 3,
+        'Platform': ['Instagram']*6 + ['LinkedIn']*6 + ['TikTok']*6,
+        'Followers': [420068, 432010, 435100, 440089, 445035, 450047, 
+                     95019, 96057, 96027, 97054, 97083, 97079,
+                     80084, 83046, 85010, 87003, 93050, 96063],
+        'Engagement rate': ['3.60%', '3.70%', '3.70%', '4.10%', '4.00%', '4.30%',
+                           '2.20%', '1.90%', '1.80%', '1.80%', '1.90%', '2.00%',
+                           '4.20%', '4.50%', '4.80%', '5.10%', '5.40%', '5.70%'],
+        'Mentions': [5884, 6440, 6537, 6345, 6893, 6749,
+                    1960, 1398, 1442, 1223, 1870, 1154,
+                    3214, 3680, 4165, 4333, 4699, 4713],
+        'Sentiment Score': [0.68, 0.71, 0.73, 0.72, 0.69, 0.72,
+                           0.81, 0.76, 0.77, 0.75, 0.8, 0.77,
+                           0.72, 0.74, 0.76, 0.78, 0.8, 0.82],
+        'Share of Voice': ['15.70%', '16.80%', '16.30%', '15.60%', '17.30%', '17.40%',
+                          '10.20%', '6.80%', '7.50%', '6.00%', '9.10%', '6.60%',
+                          '8.90%', '9.80%', '10.90%', '12.10%', '13.50%', '15.00%']
+    }
+    
+    # Brand Pulse Survey Data - Fixed the data structure
+    quarters = ['2024 Q4', '2025 Q1', '2025 Q2']
+    metrics = ['Aided Awareness', 'Purchase Consideration', 'Unaided Awareness']
+    age_groups = ['18-34', '35-54']
+    genders = ['Female', 'Male']
+    
+    brandpulse_data = {
+        'Quarter': [],
+        'Metric': [],
+        'Age Group': [],
+        'Gender': [],
+        'Score': [],
+        'Comp. avg.': []
+    }
+    
+    # Sample data for brand pulse survey
+    sample_scores = {
+        'Aided Awareness': {
+            ('18-34', 'Female'): [52.8, 57.2, 60.1],
+            ('18-34', 'Male'): [67.2, 67.4, 68.1],
+            ('35-54', 'Female'): [59.6, 63.6, 69.3],
+            ('35-54', 'Male'): [72.4, 71.3, 73.1]
+        },
+        'Purchase Consideration': {
+            ('18-34', 'Female'): [23.4, 25.5, 28.3],
+            ('18-34', 'Male'): [34.8, 34.3, 37.0],
+            ('35-54', 'Female'): [27.4, 32.9, 37.3],
+            ('35-54', 'Male'): [36.0, 39.2, 41.1]
+        },
+        'Unaided Awareness': {
+            ('18-34', 'Female'): [19.6, 21.2, 23.8],
+            ('18-34', 'Male'): [23.2, 24.5, 24.9],
+            ('35-54', 'Female'): [19.5, 23.3, 25.5],
+            ('35-54', 'Male'): [28.4, 29.3, 29.2]
+        }
+    }
+    
+    sample_comp_avg = {
+        'Aided Awareness': {
+            ('18-34', 'Female'): [54.7, 56.8, 58.9],
+            ('18-34', 'Male'): [58.3, 60.1, 62.1],
+            ('35-54', 'Female'): [60.1, 62.9, 65.2],
+            ('35-54', 'Male'): [63.2, 65.4, 67.8]
+        },
+        'Purchase Consideration': {
+            ('18-34', 'Female'): [25.6, 27.1, 28.9],
+            ('18-34', 'Male'): [28.9, 30.2, 32.1],
+            ('35-54', 'Female'): [31.8, 34.5, 36.8],
+            ('35-54', 'Male'): [35.2, 37.8, 40.2]
+        },
+        'Unaided Awareness': {
+            ('18-34', 'Female'): [16.2, 17.1, 18.3],
+            ('18-34', 'Male'): [18.5, 19.2, 20.1],
+            ('35-54', 'Female'): [19.8, 21.2, 22.7],
+            ('35-54', 'Male'): [22.1, 23.5, 24.8]
+        }
+    }
+    
+    for metric in metrics:
+        for age_group in age_groups:
+            for gender in genders:
+                for i, quarter in enumerate(quarters):
+                    brandpulse_data['Quarter'].append(quarter)
+                    brandpulse_data['Metric'].append(metric)
+                    brandpulse_data['Age Group'].append(age_group)
+                    brandpulse_data['Gender'].append(gender)
+                    brandpulse_data['Score'].append(f"{sample_scores[metric][(age_group, gender)][i]:.1f}%")
+                    brandpulse_data['Comp. avg.'].append(f"{sample_comp_avg[metric][(age_group, gender)][i]:.1f}%")
+    
+    # Convert to DataFrames
+    social_df = pd.DataFrame(social_data)
+    website_df = pd.DataFrame(website_data)
+    events_df = pd.DataFrame(events_data)
+    monitoring_df = pd.DataFrame(monitoring_data)
+    brandpulse_df = pd.DataFrame(brandpulse_data)
+    
+    return social_df, website_df, events_df, monitoring_df, brandpulse_df
 
-# Load data
-with st.spinner("Loading data..."):
-    data = load_simulated_data()
+def process_data(social_df, website_df, events_df, monitoring_df, brandpulse_df):
+    """Process and clean all datasets"""
+    
+    # Clean Social Media Data
+    social_df['Spend_Clean'] = social_df['Spend (USD)'].apply(clean_currency)
+    
+    # Add safety checks for division by zero
+    social_df['CTR'] = np.where(social_df['Impressions'] > 0, 
+                                (social_df['Clicks to dolby.com landing'] / social_df['Impressions']) * 100, 0)
+    social_df['Click_to_Signup_Rate'] = np.where(social_df['Clicks to dolby.com landing'] > 0,
+                                                (social_df['Attributed sweeps signups on dolby.com'] / social_df['Clicks to dolby.com landing']) * 100, 0)
+    social_df['CPM'] = np.where(social_df['Impressions'] > 0,
+                               (social_df['Spend_Clean'] / social_df['Impressions']) * 1000, 0)
+    social_df['CPC'] = np.where(social_df['Clicks to dolby.com landing'] > 0,
+                               social_df['Spend_Clean'] / social_df['Clicks to dolby.com landing'], 0)
+    social_df['CPSignup'] = np.where(social_df['Attributed sweeps signups on dolby.com'] > 0,
+                                    social_df['Spend_Clean'] / social_df['Attributed sweeps signups on dolby.com'], 0)
+    
+    # Clean Website Data
+    website_df['Unique_to_Demo_Rate'] = np.where(website_df['Uniques'] > 0,
+                                                (website_df['Demos completed'] / website_df['Uniques']) * 100, 0)
+    website_df['Demo_to_Signup_Rate'] = np.where(website_df['Demos completed'] > 0,
+                                                (website_df['Total sweeps signups'] / website_df['Demos completed']) * 100, 0)
+    
+    # Clean Events Data
+    events_df['Event_Spend_Clean'] = events_df['Event spend for Dolby Play'].apply(clean_currency)
+    events_df['CPDemo'] = np.where(events_df['# demos of Dolby Play conducted for mobile device partner contacts'] > 0,
+                                  events_df['Event_Spend_Clean'] / events_df['# demos of Dolby Play conducted for mobile device partner contacts'], 0)
+    events_df['CPL'] = np.where(events_df['# new mobile device partner leads generated'] > 0,
+                               events_df['Event_Spend_Clean'] / events_df['# new mobile device partner leads generated'], 0)
+    events_df['Demo_to_Lead_Rate'] = np.where(events_df['# demos of Dolby Play conducted for mobile device partner contacts'] > 0,
+                                             (events_df['# new mobile device partner leads generated'] / events_df['# demos of Dolby Play conducted for mobile device partner contacts']) * 100, 0)
+    
+    # Clean Monitoring Data
+    monitoring_df['Engagement_Rate_Clean'] = monitoring_df['Engagement rate'].apply(clean_percentage)
+    monitoring_df['Share_of_Voice_Clean'] = monitoring_df['Share of Voice'].apply(clean_percentage)
+    
+    # Clean Brand Pulse Data
+    brandpulse_df['Score_Clean'] = brandpulse_df['Score'].apply(clean_percentage)
+    brandpulse_df['Comp_Avg_Clean'] = brandpulse_df['Comp. avg.'].apply(clean_percentage)
+    
+    return social_df, website_df, events_df, monitoring_df, brandpulse_df
 
-# Extract dataframes
-brand_health_df = data.get('Brand_Health_Index', pd.DataFrame())
-digital_presence_df = data.get('Digital_Brand_Presence', pd.DataFrame())
-mql_df = data.get('Marketing_Qualified_Leads', pd.DataFrame())
-product_nps_df = data.get('Product_NPS', pd.DataFrame())
-partner_nps_df = data.get('Partner_NPS', pd.DataFrame())
-partner_mentions_df = data.get('Partner_Brand_Mentions', pd.DataFrame())
-creator_nps_df = data.get('Creator_Lab_NPS', pd.DataFrame())
-innovation_df = data.get('Innovation_Leadership_Index', pd.DataFrame())
+def main():
+    try:
+        # Title
+        st.markdown('<h1 class="main-header">🎵 Dolby Marketing Analytics Dashboard</h1>', unsafe_allow_html=True)
+        
+        # Load and process data
+        social_df, website_df, events_df, monitoring_df, brandpulse_df = load_sample_data()
+        social_df, website_df, events_df, monitoring_df, brandpulse_df = process_data(social_df, website_df, events_df, monitoring_df, brandpulse_df)
+        
+        # Sidebar
+        st.sidebar.title("📊 Dashboard Controls")
+        
+        # Navigation
+        section = st.sidebar.selectbox(
+            "Select Analysis Section:",
+            ["🏠 Overview", "📱 Social Media Performance", "🌐 Website Engagement", 
+             "🎯 B2B Events", "📊 Social Monitoring", "🎯 Brand Pulse Survey"]
+        )
+        
+        if section == "🏠 Overview":
+            st.markdown('<div class="section-header">📈 Key Performance Indicators</div>', unsafe_allow_html=True)
+            
+            # KPI Metrics
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                total_spend = social_df['Spend_Clean'].sum()
+                st.metric("Total Social Spend", f"${total_spend:,.0f}")
+                
+            with col2:
+                total_signups = social_df['Attributed sweeps signups on dolby.com'].sum()
+                st.metric("Total Signups", f"{total_signups:,}")
+                
+            with col3:
+                avg_ctr = social_df['CTR'].mean()
+                st.metric("Average CTR", f"{avg_ctr:.2f}%")
+                
+            with col4:
+                total_website_visits = website_df['Website visits'].sum()
+                st.metric("Total Website Visits", f"{total_website_visits:,}")
+            
+            # Overview Charts
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Social Media Spend Over Time
+                fig = px.line(social_df, x='Month', y='Spend_Clean', 
+                             title='Social Media Spend Over Time',
+                             labels={'Spend_Clean': 'Spend ($)'})
+                fig.update_traces(line=dict(width=3))
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Website Traffic Growth
+                fig = px.line(website_df, x='Month', y='Website visits',
+                             title='Website Visits Growth',
+                             labels={'Website visits': 'Visits'})
+                fig.update_traces(line=dict(width=3))
+                st.plotly_chart(fig, use_container_width=True)
+        
+        elif section == "📱 Social Media Performance":
+            st.markdown('<div class="section-header">📱 B2C Social Media Performance</div>', unsafe_allow_html=True)
+            
+            # Metrics selection
+            metric_type = st.selectbox(
+                "Select Metric Type:",
+                ["Engagement Metrics", "Cost Metrics", "Volume Metrics"]
+            )
+            
+            if metric_type == "Engagement Metrics":
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CTR'],
+                                           mode='lines+markers', name='CTR (%)',
+                                           line=dict(width=3)))
+                    fig.update_layout(title='Click-Through Rate Over Time',
+                                    xaxis_title='Month', yaxis_title='CTR (%)')
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                with col2:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Click_to_Signup_Rate'],
+                                           mode='lines+markers', name='Signup Rate (%)',
+                                           line=dict(width=3, color='orange')))
+                    fig.update_layout(title='Click-to-Signup Rate Over Time',
+                                    xaxis_title='Month', yaxis_title='Signup Rate (%)')
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            elif metric_type == "Cost Metrics":
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPM'],
+                                       mode='lines+markers', name='CPM'))
+                fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPC'],
+                                       mode='lines+markers', name='CPC'))
+                fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['CPSignup'],
+                                       mode='lines+markers', name='Cost per Signup'))
+                fig.update_layout(title='Cost Metrics Over Time',
+                                xaxis_title='Month', yaxis_title='Cost ($)')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            else:  # Volume Metrics
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Impressions']/1000000,
+                                       mode='lines+markers', name='Impressions (M)'),
+                             secondary_y=False)
+                fig.add_trace(go.Scatter(x=social_df['Month'], y=social_df['Clicks to dolby.com landing']/1000,
+                                       mode='lines+markers', name='Clicks (K)'),
+                             secondary_y=True)
+                fig.update_layout(title='Volume Metrics Over Time')
+                fig.update_yaxes(title_text="Impressions (M)", secondary_y=False)
+                fig.update_yaxes(title_text="Clicks (K)", secondary_y=True)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        elif section == "🌐 Website Engagement":
+            st.markdown('<div class="section-header">🌐 B2C Website Engagement</div>', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Website visits'],
+                                       mode='lines+markers', name='Total Visits'))
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Uniques'],
+                                       mode='lines+markers', name='Unique Visits'))
+                fig.update_layout(title='Website Traffic Over Time',
+                                xaxis_title='Month', yaxis_title='Visits')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Average session duration (min)'],
+                                       mode='lines+markers', name='Avg Session Duration',
+                                       line=dict(color='green', width=3)))
+                fig.update_layout(title='Average Session Duration',
+                                xaxis_title='Month', yaxis_title='Duration (min)')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Demos completed'],
+                                       mode='lines+markers', name='Demos Completed'))
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Total sweeps signups'],
+                                       mode='lines+markers', name='Total Signups'))
+                fig.update_layout(title='Demos vs Signups Over Time',
+                                xaxis_title='Month', yaxis_title='Count')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Unique_to_Demo_Rate'],
+                                       mode='lines+markers', name='Unique to Demo Rate'))
+                fig.add_trace(go.Scatter(x=website_df['Month'], y=website_df['Demo_to_Signup_Rate'],
+                                       mode='lines+markers', name='Demo to Signup Rate'))
+                fig.update_layout(title='Conversion Rates Over Time',
+                                xaxis_title='Month', yaxis_title='Rate (%)')
+                st.plotly_chart(fig, use_container_width=True)
+        
+        elif section == "🎯 B2B Events":
+            st.markdown('<div class="section-header">🎯 B2B Industry Events</div>', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = px.bar(events_df, x='Industry Event', y='Event_Spend_Clean',
+                            title='Event Spend by Event',
+                            labels={'Event_Spend_Clean': 'Spend ($)'})
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=events_df['Industry Event'], 
+                                   y=events_df['# demos of Dolby Play conducted for mobile device partner contacts'],
+                                   name='Demos', offsetgroup=1))
+                fig.add_trace(go.Bar(x=events_df['Industry Event'], 
+                                   y=events_df['# new mobile device partner leads generated'],
+                                   name='Leads', offsetgroup=2))
+                fig.update_layout(title='Demos vs Leads by Event',
+                                xaxis_title='Event', yaxis_title='Count')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=events_df['Industry Event'], y=events_df['CPDemo'],
+                                   name='Cost per Demo'))
+                fig.add_trace(go.Bar(x=events_df['Industry Event'], y=events_df['CPL'],
+                                   name='Cost per Lead'))
+                fig.update_layout(title='Cost Efficiency by Event',
+                                xaxis_title='Event', yaxis_title='Cost ($)')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = px.bar(events_df, x='Industry Event', y='Demo_to_Lead_Rate',
+                            title='Demo to Lead Conversion Rate',
+                            labels={'Demo_to_Lead_Rate': 'Conversion Rate (%)'})
+                st.plotly_chart(fig, use_container_width=True)
+        
+        elif section == "📊 Social Monitoring":
+            st.markdown('<div class="section-header">📊 Social Media Monitoring</div>', unsafe_allow_html=True)
+            
+            # Platform selection
+            selected_platforms = st.multiselect(
+                "Select Platforms:",
+                options=monitoring_df['Platform'].unique(),
+                default=monitoring_df['Platform'].unique()
+            )
+            
+            if selected_platforms:  # Only proceed if platforms are selected
+                filtered_monitoring = monitoring_df[monitoring_df['Platform'].isin(selected_platforms)]
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig = px.line(filtered_monitoring, x='Month', y='Followers', 
+                                 color='Platform', title='Followers Growth by Platform')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    fig = px.line(filtered_monitoring, x='Month', y='Engagement_Rate_Clean',
+                                 color='Platform', title='Engagement Rate by Platform',
+                                 labels={'Engagement_Rate_Clean': 'Engagement Rate (%)'})
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig = px.line(filtered_monitoring, x='Month', y='Sentiment Score',
+                                 color='Platform', title='Sentiment Score by Platform')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    fig = px.line(filtered_monitoring, x='Month', y='Share_of_Voice_Clean',
+                                 color='Platform', title='Share of Voice by Platform',
+                                 labels={'Share_of_Voice_Clean': 'Share of Voice (%)'})
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Please select at least one platform to display charts.")
+        
+        elif section == "🎯 Brand Pulse Survey":
+            st.markdown('<div class="section-header">🎯 Brand Pulse Survey Analysis</div>', unsafe_allow_html=True)
+            
+            # Metric selection
+            selected_metric = st.selectbox(
+                "Select Metric:",
+                options=brandpulse_df['Metric'].unique()
+            )
+            
+            metric_data = brandpulse_df[brandpulse_df['Metric'] == selected_metric]
+            
+            # Create demographic segment identifier
+            metric_data = metric_data.copy()
+            metric_data['Demographic'] = metric_data['Age Group'] + ' ' + metric_data['Gender']
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = px.line(metric_data, x='Quarter', y='Score_Clean',
+                             color='Demographic', title=f'{selected_metric} - Dolby Scores',
+                             labels={'Score_Clean': 'Score (%)'})
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = px.line(metric_data, x='Quarter', y='Comp_Avg_Clean',
+                             color='Demographic', title=f'{selected_metric} - Competitor Average',
+                             labels={'Comp_Avg_Clean': 'Score (%)'})
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Gap analysis
+            metric_data = metric_data.copy()
+            metric_data['Gap'] = metric_data['Score_Clean'] - metric_data['Comp_Avg_Clean']
+            
+            fig = px.bar(metric_data, x='Quarter', y='Gap', color='Demographic',
+                        title=f'{selected_metric} - Dolby vs Competitor Gap',
+                        labels={'Gap': 'Gap (% points)'})
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Footer
+        st.markdown("---")
+        st.markdown("📊 **Dolby Marketing Analytics Dashboard** | Powered by Streamlit")
+        
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.info("Please check your data and try again.")
 
-# EXECUTIVE SUMMARY DASHBOARD
-def show_executive_summary():
-    st.markdown('<h2 class="sub-header">📈 Executive Summary</h2>', unsafe_allow_html=True)
-    
-    # Key Metrics Row
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        avg_score = brand_health_df['Composite_Brand_Health_Score'].mean()
-        st.metric(
-            label="Brand Health Index",
-            value=f"{avg_score:.1f}",
-            delta="+8.1% YoY"
-        )
-    
-    with col2:
-        total_mqls = mql_df['MQL_Count'].sum()
-        st.metric(
-            label="Total MQLs",
-            value=f"{total_mqls:,.0f}",
-            delta="+15% vs last period"
-        )
-    
-    with col3:
-        avg_nps = product_nps_df['NPS_Score'].mean()
-        st.metric(
-            label="Product NPS",
-            value=f"{avg_nps:.0f}",
-            delta="+12 points"
-        )
-    
-    with col4:
-        avg_innovation = innovation_df['Innovation_Leadership_Index'].mean()
-        st.metric(
-            label="Innovation Index",
-            value=f"{avg_innovation:.1f}",
-            delta="+7.2%"
-        )
-    
-    # Second row of metrics
-    col5, col6, col7, col8 = st.columns(4)
-    
-    with col5:
-        overall_rate = (mql_df['MQL_Count'].sum() / mql_df['Total_Leads'].sum() * 100)
-        st.metric(
-            label="MQL Conversion",
-            value=f"{overall_rate:.1f}%",
-            delta="+2.3%"
-        )
-    
-    with col6:
-        total_mentions = partner_mentions_df['Mention_Count'].sum()
-        st.metric(
-            label="Brand Mentions",
-            value=f"{total_mentions:,.0f}",
-            delta="+42%"
-        )
-    
-    with col7:
-        avg_partner_nps = partner_nps_df['NPS_Score'].mean()
-        st.metric(
-            label="Partner NPS",
-            value=f"{avg_partner_nps:.0f}",
-            delta="+9 points"
-        )
-    
-    with col8:
-        avg_creator_nps = creator_nps_df['NPS_Score'].mean()
-        st.metric(
-            label="Creator NPS",
-            value=f"{avg_creator_nps:.0f}",
-            delta="+11 points"
-        )
-    
-    # Charts Row
-    st.markdown('<h3 class="sub-header">Performance Trends</h3>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Brand Health Trend")
-        fig = px.line(brand_health_df, x='Date', y='Composite_Brand_Health_Score',
-                     markers=True, line_shape='linear')
-        fig.update_layout(
-            xaxis_title='Quarter',
-            yaxis_title='Composite Score',
-            height=400
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("MQL Conversion Trend")
-        conversion_trend = mql_df.groupby('Date')['Conversion_Rate'].mean().reset_index()
-        fig = px.line(conversion_trend, x='Date', y='Conversion_Rate',
-                     markers=True, line_shape='linear')
-        fig.update_layout(
-            xaxis_title='Month',
-            yaxis_title='Conversion Rate (%)',
-            yaxis_tickformat='.1%',
-            height=400
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# MARKET POSITION DASHBOARD
-def show_market_position_dashboard():
-    st.markdown('<h2 class="sub-header">🎯 Market Position & Lead Generation</h2>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["📈 Trends", "📊 Performance", "🎯 Lead Quality"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Brand Health Index Trend")
-            fig = px.line(brand_health_df, x='Date', y='Composite_Brand_Health_Score',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Quarter',
-                yaxis_title='Composite Score',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Lead Score Trend")
-            lead_score_trend = mql_df.groupby('Date')['Lead_Score_Average'].mean().reset_index()
-            fig = px.line(lead_score_trend, x='Date', y='Lead_Score_Average',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Month',
-                yaxis_title='Average Lead Score',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Digital Brand Presence by Market")
-            digital_presence_summary = digital_presence_df.groupby('Market')['Composite_Digital_Presence_Score'].mean().reset_index()
-            fig = px.bar(digital_presence_summary, x='Market', y='Composite_Digital_Presence_Score',
-                        color='Market', text_auto='.1f')
-            fig.update_layout(
-                yaxis_title='Composite Score',
-                height=400,
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("MQL Volume by Month")
-            mql_volume = mql_df.groupby('Date').agg({
-                'Total_Leads': 'sum',
-                'MQL_Count': 'sum'
-            }).reset_index()
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=mql_volume['Date'],
-                y=mql_volume['Total_Leads'],
-                name='Total Leads',
-                marker_color='lightblue'
-            ))
-            fig.add_trace(go.Bar(
-                x=mql_volume['Date'],
-                y=mql_volume['MQL_Count'],
-                name='MQLs',
-                marker_color='orange'
-            ))
-            fig.update_layout(
-                barmode='group',
-                xaxis_title='Month',
-                yaxis_title='Count',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        st.subheader("MQL Performance by Lead Source")
-        mql_summary = mql_df.groupby('Lead_Source').agg({
-            'Total_Leads': 'sum',
-            'MQL_Count': 'sum'
-        }).reset_index()
-        mql_summary['Conversion_Rate'] = (mql_summary['MQL_Count'] / mql_summary['Total_Leads']) * 100
-        
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        # Add bars for counts
-        fig.add_trace(
-            go.Bar(x=mql_summary['Lead_Source'], y=mql_summary['Total_Leads'],
-                  name='Total Leads', marker_color='lightblue'),
-            secondary_y=False
-        )
-        fig.add_trace(
-            go.Bar(x=mql_summary['Lead_Source'], y=mql_summary['MQL_Count'],
-                  name='MQLs', marker_color='orange'),
-            secondary_y=False
-        )
-        
-        # Add line for conversion rate
-        fig.add_trace(
-            go.Scatter(x=mql_summary['Lead_Source'], y=mql_summary['Conversion_Rate'],
-                      name='Conversion Rate', mode='lines+markers',
-                      line=dict(color='red', width=2)),
-            secondary_y=True
-        )
-        
-        fig.update_layout(
-            xaxis_title='Lead Source',
-            title='MQL Performance by Lead Source',
-            barmode='group',
-            height=500
-        )
-        fig.update_yaxes(title_text="Count", secondary_y=False)
-        fig.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True)
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-# PRODUCT EXPERIENCE DASHBOARD
-def show_product_experience_dashboard():
-    st.markdown('<h2 class="sub-header">⭐ Product Experience - "First Meet" NPS</h2>', unsafe_allow_html=True)
-    
-    tab1, tab2 = st.tabs(["📈 NPS Trends", "🎯 Experience Metrics"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("NPS Score Trend by Touchpoint")
-            nps_by_touchpoint = product_nps_df.pivot_table(
-                index='Year_Quarter', 
-                columns='Touchpoint', 
-                values='NPS_Score',
-                aggfunc='mean'
-            ).reset_index()
-            
-            # Sort chronologically
-            quarter_order = ['Q1 2023', 'Q2 2023', 'Q3 2023', 'Q4 2023', 
-                           'Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024']
-            nps_by_touchpoint['Year_Quarter'] = pd.Categorical(nps_by_touchpoint['Year_Quarter'], 
-                                                              categories=quarter_order, ordered=True)
-            nps_by_touchpoint = nps_by_touchpoint.sort_values('Year_Quarter')
-            
-            fig = go.Figure()
-            touchpoints = [col for col in nps_by_touchpoint.columns if col != 'Year_Quarter']
-            for touchpoint in touchpoints:
-                fig.add_trace(go.Scatter(
-                    x=nps_by_touchpoint['Year_Quarter'],
-                    y=nps_by_touchpoint[touchpoint],
-                    mode='lines+markers',
-                    name=touchpoint
-                ))
-            
-            fig.update_layout(
-                xaxis_title='Quarter',
-                yaxis_title='NPS Score',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("NPS Distribution")
-            categories = ['Promoters_Pct', 'Passives_Pct', 'Detractors_Pct']
-            
-            latest_quarter = product_nps_df['Year_Quarter'].max()
-            latest_data = product_nps_df[product_nps_df['Year_Quarter'] == latest_quarter]
-            avg_distribution = latest_data[categories].mean().values
-            
-            fig = px.pie(
-                values=avg_distribution,
-                names=['Promoters', 'Passives', 'Detractors'],
-                color=['Promoters', 'Passives', 'Detractors'],
-                color_discrete_map={'Promoters': '#2ecc71', 'Passives': '#f39c12', 'Detractors': '#e74c3c'},
-                title=f'NPS Distribution ({latest_quarter})'
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        st.subheader("Experience Metrics")
-        
-        latest_quarter = product_nps_df['Year_Quarter'].max()
-        latest_data = product_nps_df[product_nps_df['Year_Quarter'] == latest_quarter]
-        
-        experience_metrics = ['Value_Communication_Score', 'Ease_Of_Understanding_Score', 
-                             'Brand_Clarity_Score', 'Entertainment_Value_Score']
-        
-        experience_scores = latest_data[experience_metrics].mean().reset_index()
-        experience_scores.columns = ['Metric', 'Average_Score']
-        experience_scores['Metric'] = experience_scores['Metric'].str.replace('_Score', '').str.replace('_', ' ')
-        
-        # Display as a bar chart
-        fig = px.bar(experience_scores, x='Metric', y='Average_Score',
-                     text_auto='.2f', color='Metric')
-        fig.update_layout(
-            yaxis_title='Average Score (1-5)',
-            yaxis_range=[3.5, 5],
-            height=400,
-            showlegend=False
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Also show as a dataframe
-        st.dataframe(experience_scores, use_container_width=True)
-
-# PARTNER DASHBOARD
-def show_partner_dashboard():
-    st.markdown('<h2 class="sub-header">🤝 Partner Value & Enablement</h2>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["📊 NPS Analysis", "📣 Brand Mentions", "🌐 Regional View"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Partner NPS Trend")
-            nps_trend = partner_nps_df.groupby('Year')['NPS_Score'].mean().reset_index()
-            fig = px.line(nps_trend, x='Year', y='NPS_Score',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Year',
-                yaxis_title='Average NPS Score',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Brand Perception by Partner Type")
-            avg_scores = partner_nps_df.groupby('Partner_Type').agg({
-                'Brand_Awareness_Score': 'mean',
-                'Innovation_Leadership_Score': 'mean'
-            }).reset_index()
-            
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=avg_scores['Partner_Type'],
-                y=avg_scores['Brand_Awareness_Score'],
-                name='Brand Awareness',
-                marker_color='lightblue'
-            ))
-            fig.add_trace(go.Bar(
-                x=avg_scores['Partner_Type'],
-                y=avg_scores['Innovation_Leadership_Score'],
-                name='Innovation Leadership',
-                marker_color='orange'
-            ))
-            fig.update_layout(
-                barmode='group',
-                xaxis_title='Partner Type',
-                yaxis_title='Average Score',
-                yaxis_range=[3.5, 5],
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Partner Brand Mentions Trend")
-            mentions_trend = partner_mentions_df.groupby('Date').agg({
-                'Mention_Count': 'sum',
-                'Estimated_Reach': 'sum'
-            }).reset_index()
-            
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(
-                go.Scatter(x=mentions_trend['Date'], y=mentions_trend['Mention_Count'],
-                          mode='lines+markers', name='Mention Count',
-                          line=dict(color='#2ecc71', width=2)),
-                secondary_y=False
-            )
-            fig.add_trace(
-                go.Scatter(x=mentions_trend['Date'], y=mentions_trend['Estimated_Reach']/1000000,
-                          mode='lines+markers', name='Estimated Reach (M)',
-                          line=dict(color='#e74c3c', width=2)),
-                secondary_y=True
-            )
-            
-            fig.update_layout(
-                xaxis_title='Month',
-                title='Partner Brand Mentions Trend',
-                height=400
-            )
-            fig.update_yaxes(title_text="Mention Count", secondary_y=False)
-            fig.update_yaxes(title_text="Estimated Reach (Millions)", secondary_y=True)
-            
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Brand Mentions by Partner")
-            mentions_by_partner = partner_mentions_df.groupby('Partner_Name')['Mention_Count'].sum().reset_index()
-            mentions_by_partner = mentions_by_partner.sort_values('Mention_Count', ascending=True)
-            
-            fig = px.bar(mentions_by_partner, x='Mention_Count', y='Partner_Name',
-                        orientation='h', text_auto=True, color='Mention_Count',
-                        color_continuous_scale='viridis')
-            fig.update_layout(
-                xaxis_title='Total Mention Count',
-                yaxis_title='Partner Name',
-                height=400,
-                coloraxis_showscale=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        st.subheader("Partner NPS Score Heatmap")
-        partner_nps_pivot = partner_nps_df.pivot_table(
-            index='Region',
-            columns='Partner_Type',
-            values='NPS_Score',
-            aggfunc='mean'
-        )
-        
-        fig = px.imshow(partner_nps_pivot,
-                       text_auto='.1f',
-                       color_continuous_scale='YlOrRd',
-                       title='Partner NPS Score Heatmap')
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-# INNOVATION DASHBOARD
-def show_innovation_dashboard():
-    st.markdown('<h2 class="sub-header">💡 Innovation Leadership</h2>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["📈 Index Trends", "🧭 Category Analysis", "🎯 Sentiment Insights"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Innovation Leadership Index Trend")
-            innovation_trend = innovation_df.groupby('Date')['Innovation_Leadership_Index'].mean().reset_index()
-            
-            fig = px.line(innovation_trend, x='Date', y='Innovation_Leadership_Index',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Month',
-                yaxis_title='Innovation Leadership Index',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Total Innovation Mentions Trend")
-            mentions_trend = innovation_df.groupby('Date')['Total_Mentions'].sum().reset_index()
-            
-            fig = px.line(mentions_trend, x='Date', y='Total_Mentions',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Month',
-                yaxis_title='Total Mentions',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        st.subheader("Innovation Category Performance")
-        
-        latest_date = innovation_df['Date'].max()
-        latest_innovation = innovation_df[innovation_df['Date'] == latest_date]
-        
-        category_performance = latest_innovation.groupby('Innovation_Category').agg({
-            'Innovation_Leadership_Index': 'mean',
-            'Association_Share_Pct': 'mean'
-        }).reset_index()
-        
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=category_performance['Innovation_Category'],
-            y=category_performance['Innovation_Leadership_Index'],
-            name='Leadership Index',
-            marker_color='lightblue'
-        ))
-        fig.add_trace(go.Bar(
-            x=category_performance['Innovation_Category'],
-            y=category_performance['Association_Share_Pct'],
-            name='Association Share %',
-            marker_color='orange'
-        ))
-        
-        fig.update_layout(
-            barmode='group',
-            xaxis_title='Innovation Category',
-            yaxis_title='Score / Percentage',
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        st.subheader("Sentiment Analysis")
-        
-        sentiment_cols = ['Positive_Sentiment_Pct', 'Negative_Sentiment_Pct', 'Neutral_Sentiment_Pct']
-        latest_date = innovation_df['Date'].max()
-        latest_innovation = innovation_df[innovation_df['Date'] == latest_date]
-        
-        sentiment_by_category = latest_innovation.groupby('Innovation_Category')[sentiment_cols].mean().reset_index()
-        
-        fig = go.Figure()
-        colors = ['#2ecc71', '#e74c3c', '#f39c12']
-        for i, col in enumerate(sentiment_cols):
-            fig.add_trace(go.Bar(
-                x=sentiment_by_category['Innovation_Category'],
-                y=sentiment_by_category[col],
-                name=col.replace('_Sentiment_Pct', ''),
-                marker_color=colors[i]
-            ))
-        
-        fig.update_layout(
-            barmode='stack',
-            xaxis_title='Innovation Category',
-            yaxis_title='Sentiment Percentage',
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# CREATOR DASHBOARD
-def show_creator_dashboard():
-    st.markdown('<h2 class="sub-header">🎨 Creator Advocacy</h2>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["📊 NPS Analysis", "📈 Program Performance", "👥 Cohort Insights"])
-    
-    with tab1:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Average NPS by Content Type")
-            nps_by_content = creator_nps_df.groupby('Content_Type')['NPS_Score'].mean().reset_index()
-            nps_by_content = nps_by_content.sort_values('NPS_Score', ascending=False)
-            
-            fig = px.bar(nps_by_content, x='Content_Type', y='NPS_Score',
-                        text_auto='.1f', color='Content_Type')
-            fig.update_layout(
-                xaxis_title='Content Type',
-                yaxis_title='Average NPS Score',
-                yaxis_range=[0, 60],
-                height=400,
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Creator NPS Trend")
-            creator_nps_df['Quarter'] = creator_nps_df['Date']
-            nps_trend = creator_nps_df.groupby('Quarter')['NPS_Score'].mean().reset_index()
-            
-            # Sort chronologically
-            quarter_order = ['Q1 2023', 'Q2 2023', 'Q3 2023', 'Q4 2023', 
-                           'Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024']
-            nps_trend['Quarter'] = pd.Categorical(nps_trend['Quarter'], categories=quarter_order, ordered=True)
-            nps_trend = nps_trend.sort_values('Quarter')
-            
-            fig = px.line(nps_trend, x='Quarter', y='NPS_Score',
-                         markers=True, line_shape='linear')
-            fig.update_layout(
-                xaxis_title='Quarter',
-                yaxis_title='Average NPS Score',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        st.subheader("Program Evaluation by Content Type")
-        
-        avg_scores = creator_nps_df.groupby('Content_Type').agg({
-            'Program_Value_Score': 'mean',
-            'Workflow_Efficiency_Score': 'mean'
-        }).reset_index()
-        
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=avg_scores['Content_Type'],
-            y=avg_scores['Program_Value_Score'],
-            name='Program Value',
-            marker_color='lightblue'
-        ))
-        fig.add_trace(go.Bar(
-            x=avg_scores['Content_Type'],
-            y=avg_scores['Workflow_Efficiency_Score'],
-            name='Workflow Efficiency',
-            marker_color='orange'
-        ))
-        
-        fig.update_layout(
-            barmode='group',
-            xaxis_title='Content Type',
-            yaxis_title='Average Score',
-            yaxis_range=[3.5, 5],
-            height=500
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("NPS Score by Cohort")
-            cohort_performance = creator_nps_df.groupby('Cohort')['NPS_Score'].mean().reset_index()
-            cohort_order = ['Cohort 1', 'Cohort 2', 'Cohort 3', 'Cohort 4']
-            cohort_performance['Cohort'] = pd.Categorical(cohort_performance['Cohort'], 
-                                                        categories=cohort_order, ordered=True)
-            cohort_performance = cohort_performance.sort_values('Cohort')
-            
-            fig = px.bar(cohort_performance, x='Cohort', y='NPS_Score',
-                        text_auto='.1f', color='Cohort')
-            fig.update_layout(
-                yaxis_title='Average NPS Score',
-                yaxis_range=[0, 60],
-                height=400,
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.subheader("Total Survey Responses by Content Type")
-            response_by_type = creator_nps_df.groupby('Content_Type')['Response_Count'].sum().reset_index()
-            response_by_type = response_by_type.sort_values('Response_Count', ascending=True)
-            
-            fig = px.bar(response_by_type, x='Response_Count', y='Content_Type',
-                        orientation='h', text_auto=True, color='Response_Count',
-                        color_continuous_scale='coolwarm')
-            fig.update_layout(
-                xaxis_title='Total Response Count',
-                yaxis_title='Content Type',
-                height=400,
-                coloraxis_showscale=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-# Main app routing
-if dashboard_choice == "📊 Executive Summary":
-    show_executive_summary()
-elif dashboard_choice == "🎯 Market Position & Lead Gen":
-    show_market_position_dashboard()
-elif dashboard_choice == "⭐ Product Experience":
-    show_product_experience_dashboard()
-elif dashboard_choice == "🤝 Partner Value & Enablement":
-    show_partner_dashboard()
-elif dashboard_choice == "💡 Innovation Leadership":
-    show_innovation_dashboard()
-elif dashboard_choice == "🎨 Creator Advocacy":
-    show_creator_dashboard()
-
-# Footer
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
-with col2:
-    st.caption("© 2024 Dolby Marketing Analytics Dashboard | Data refreshes hourly")
+if __name__ == "__main__":
+    main()
